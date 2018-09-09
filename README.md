@@ -5,7 +5,8 @@ Python 3.7.0
 pipenv
 
 ## 使い方
-weightsファイルをダウンロードし，プロジェクト直下に置く．
+weightsファイルをダウンロードし，プロジェクト直下に置く．  
+[yolov3.weights](https://www.dropbox.com/s/1r2xawzvz0fpd8f/yolov3.weights?dl=0)  
 
 ```$ pipenv install```  
 ```$ pipenv run python main.py```
