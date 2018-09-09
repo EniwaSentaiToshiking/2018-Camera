@@ -98,23 +98,37 @@ def postprocess(frame, outs):
                 confidences.append(float(confidence))
                 boxes.append([left, top, width, height])
 
-    # 配列の初期化
-    red.clear()
-    blue.clear()
-    yellow.clear()
-    green.clear()
-    black.clear()
-
-    # Yoloで出力されるボックスの位置を出す
     indices = cv.dnn.NMSBoxes(boxes, confidences, confThreshold, nmsThreshold)
+
+    count = 0
+    red_flag = False
+
+    #  赤のiの値は0のため，それだけは別に処理
     for i in indices:
         i = i[0]
-        box = boxes[i]
-        left = box[0]
-        top = box[1]
-        width = box[2]
-        height = box[3]
-        drawPred(classIds[i], confidences[i], left, top, left + width, top + height)
+        count = count + classIds[i]
+
+        if classIds[i] == 0:
+            red_flag = True
+
+    # 全色あった場合には書き換えをする．なかった場合は更新を行わない
+    if count == 14 and red_flag == True:
+        # 配列の初期化
+        red.clear()
+        blue.clear()
+        yellow.clear()
+        green.clear()
+        black.clear()
+
+        # Yoloで出力されるボックスの位置を出す
+        for i in indices:
+            i = i[0]
+            box = boxes[i]
+            left = box[0]
+            top = box[1]
+            width = box[2]
+            height = box[3]
+            drawPred(classIds[i], confidences[i], left, top, left + width, top + height)
 
 
 # クリックした箇所をサークルと判断する　最初に色付きを16回　後に黒丸を9回
@@ -169,6 +183,15 @@ while True:
     blob = cv.dnn.blobFromImage(frame, 1 / 255, (inpWidth, inpHeight), [0, 0, 0], 1, crop=False)
     net.setInput(blob)
     outs = net.forward(getOutputsNames(net))
+
+    if len(color_position) <= 15:
+        text = 'Color Block @%s' % str(16-len(color_position))
+    elif len(black_position) <= 8:
+        text = 'Black Block @%s' % str(9-len(black_position))
+    else:
+        text = 'Complete'
+
+    cv.putText(frame, text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 178, 50), 3)
 
     # 四角の描画やマウスイベントの設定
     postprocess(frame, outs)
