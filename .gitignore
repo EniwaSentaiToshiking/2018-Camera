@@ -109,3 +109,7 @@ venv.bak/
 
 # yolo
 *.weights
+
+# data
+blackdata.txt
+colordata.txt
