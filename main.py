@@ -2,6 +2,7 @@ import cv2 as cv
 import argparse
 import sys
 import numpy as np
+import pickle
 import os.path
 
 # 初期化
@@ -35,6 +36,9 @@ black_position = []
 
 color_block_position = []
 black_block_position = []
+
+send_color_data = []
+send_black_data = []
 
 red = []
 blue = []
@@ -143,16 +147,19 @@ def mouse_event(event, x, y, flags, param):
 # ブロックの位置を取得し，配列に変換する
 def get_block_position():
     color_block_position.clear()
+    send_color_data.clear()
     black_block_position.clear()
+    send_black_data.clear()
+
     for i in range(0, len(color_position)):
         if red[0][0] <= color_position[i][0] <= red[0][2] and red[0][1] <= color_position[i][1] <= red[0][3]:
             color_block_position.append(1)
         elif blue[0][0] <= color_position[i][0] <= blue[0][2] and blue[0][1] <= color_position[i][1] <= blue[0][3]:
-            color_block_position.append(2)
-        elif yellow[0][0] <= color_position[i][0] <= yellow[0][2] and yellow[0][1] <= color_position[i][1] <= yellow[0][3]:
-            color_block_position.append(3)
-        elif green[0][0] <= color_position[i][0] <= green[0][2] and green[0][1] <= color_position[i][1] <= green[0][3]:
             color_block_position.append(4)
+        elif yellow[0][0] <= color_position[i][0] <= yellow[0][2] and yellow[0][1] <= color_position[i][1] <= yellow[0][3]:
+            color_block_position.append(2)
+        elif green[0][0] <= color_position[i][0] <= green[0][2] and green[0][1] <= color_position[i][1] <= green[0][3]:
+            color_block_position.append(3)
         else:
             color_block_position.append(0)
 
@@ -164,10 +171,16 @@ def get_block_position():
         else:
             black_block_position.append(0)
 
+    for i in range(1, 5):  # 赤，黄，青，緑の順に配列を並び替える
+        send_color_data.append(color_block_position.index(i))
+    for i in range(0, len(black_block_position)):  # 黒の配列を送る
+        if black_block_position[i] == 1:
+            send_black_data.append(i)
+
 # 描画を行う上での初期設定
 winName = 'ET Robo'
 cv.namedWindow(winName, cv.WINDOW_NORMAL)
-cap = cv.VideoCapture(0)  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
+cap = cv.VideoCapture(1)  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
 wname = "MouseEvent"
 
 while True:
@@ -179,7 +192,7 @@ while True:
         cv.waitKey(3000)
         break
 
-    # Yoloを用いたネットワークの構築
+    # YOLOを用いたネットワークの構築
     blob = cv.dnn.blobFromImage(frame, 1 / 255, (inpWidth, inpHeight), [0, 0, 0], 1, crop=False)
     net.setInput(blob)
     outs = net.forward(getOutputsNames(net))
@@ -204,8 +217,14 @@ while True:
     key = cv.waitKey(1) & 0xff
     if key == ord('s'):
         get_block_position()
-        print('color', color_block_position)
-        print('black', black_block_position)
+        print('color', send_color_data)
+        print('black', send_black_data)
+        f1 = open('colordata.txt', 'w')
+        f2 = open('blackdata.txt', 'w')
+        pickle.dump(send_color_data, f1)
+        pickle.dump(send_black_data, f2)
+        f1.close()
+        f2.close()
 
     elif key == ord('q'):
         cv.destroyAllWindows()
