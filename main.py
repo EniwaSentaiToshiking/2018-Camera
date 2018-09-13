@@ -2,8 +2,10 @@ import cv2 as cv
 import argparse
 import sys
 import numpy as np
-import pickle
 import os.path
+import math
+import serial
+from timeout_decorator import timeout, TimeoutError
 
 # 初期化
 confThreshold = 0.5  # Confidence threshold
@@ -115,8 +117,9 @@ def postprocess(frame, outs):
         if classIds[i] == 0:
             red_flag = True
 
-    # 全色あった場合には書き換えをする．なかった場合は更新を行わない
-    if count == 14 and red_flag == True:
+    # 全色あった場合には書き換えをする．なかった場合は保持している情報の更新を行わない
+    # TODO: 全色ないと反応しないのはリスク高いから，変わりの処理が必要
+    if count == 14 and red_flag:
         # 配列の初期化
         red.clear()
         blue.clear()
@@ -171,26 +174,48 @@ def get_block_position():
         else:
             black_block_position.append(0)
 
-    for i in range(1, 5):  # 赤，黄，青，緑の順に配列を並び替える
+    for i in range(1, 5):  # 赤，黄，青，緑の順に配列を整形
         send_color_data.append(color_block_position.index(i))
-    for i in range(0, len(black_block_position)):  # 黒の配列を送る
+    for i in range(0, len(black_block_position)):  # 黒の配列を整形
         if black_block_position[i] == 1:
             send_black_data.append(i)
+
+
+@timeout(0.1)
+def serial_read(robo):
+    return robo.readline().decode('ascii')
 
 # 描画を行う上での初期設定
 winName = 'ET Robo'
 cv.namedWindow(winName, cv.WINDOW_NORMAL)
+cv.setWindowProperty(winName, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 cap = cv.VideoCapture(1)  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
 wname = "MouseEvent"
 
-while True:
-    hasFrame, frame = cap.read()
+# BlueToothの初期化
+try:
+    ser = serial.Serial('/dev/tty.Mindstorms-SerialPortPr', 9600)  # tty.MindstormsEV3-SerialPor,tty.Mindstorms-SerialPortPr
+except :
+    ser = ''
 
+while True:
+    # ビデオ情報の読み込み
+    hasFrame, frame = cap.read()
     # もしビデオカメラの情報がない場合
     if not hasFrame:
         print("エラー：ビデオカメラの情報がありません")
         cv.waitKey(3000)
         break
+    line = ''
+
+    # BlueToothでロボットから送られてくるデータの読み込み
+    try:
+        line = serial_read(ser)
+        print('OK', line)
+    except TimeoutError:
+        print('None')
+    except :
+        print('None1')
 
     # YOLOを用いたネットワークの構築
     blob = cv.dnn.blobFromImage(frame, 1 / 255, (inpWidth, inpHeight), [0, 0, 0], 1, crop=False)
@@ -213,22 +238,33 @@ while True:
     # ウィンドウの表示
     cv.imshow(winName, frame)
 
-    # ボタン押下時のイベント作成
-    key = cv.waitKey(1) & 0xff
-    if key == ord('s'):
+    # BlueToothで座標データの送信
+    if line:  # ロボットからシグナルが来ている場合
         get_block_position()
+        send_data = ''
         print('color', send_color_data)
         print('black', send_black_data)
-        f1 = open('colordata.txt', 'wb')
-        f2 = open('blackdata.txt', 'wb')
-        pickle.dump(send_color_data, f1)
-        pickle.dump(send_black_data, f2)
-        f1.close()
-        f2.close()
 
-    elif key == ord('q'):
+        # データを2桁に整形
+        for val in send_color_data:
+            if int(math.log10(val) + 1) == 1:
+                send_data += '0' + str(val)
+            else:
+                send_data += str(val)
+
+        for val in send_black_data:
+            send_data += str(val)
+
+        # BlueToothで送信
+        ser.write(send_data.encode('ascii'))
+        ser.close()
         cv.destroyAllWindows()
         break
 
+    # ボタン押下時のイベント作成
+    key = cv.waitKey(1) & 0xff
+    if key == ord('q'):
+        cv.destroyAllWindows()
+        break
 
 print('end')
