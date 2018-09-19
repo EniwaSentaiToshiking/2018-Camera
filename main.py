@@ -160,7 +160,6 @@ def get_block_position():
         if len(color_block_position) <= i:
             color_block_position.append(0)
 
-    print(color_block_position)
     for i in range(0, len(black_position)):
         try:
             if black[0][0] <= black_position[i][0] <= black[0][2] and black[0][1] <= black_position[i][1] <= black[0][3]:
@@ -175,7 +174,6 @@ def get_block_position():
         if i in color_block_position:
             send_color_data.append(color_block_position.index(i))
         else:  # もし見つけることが出来なかった場合
-            print('tmp', tmp_color)
             if i in tmp_color:
                 send_color_data.append(tmp_color.index(i))  # 一度見つけた色はその色を表示する
                 color_block_position[tmp_color.index(i)] = i
@@ -220,9 +218,11 @@ cap = cv.VideoCapture(cam_url)
 wname = "MouseEvent"
 frame_count = 1
 
+get_block_position_flag = False
+
 # BlueToothの初期化
 try:
-    ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor', 9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
+    ser ='' # serial.Serial('/dev/tty.MindstormsEV3-SerialPor', 9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
 except :
     ser = ''
 
@@ -247,6 +247,8 @@ while True:
         outs = net.forward(getOutputsNames(net))
         postprocess(im, outs)
         frame_count = 1
+        if get_block_position_flag:
+            get_block_position()
 
         # ウィンドウの表示
         cv.imshow(winName, im)
@@ -267,13 +269,14 @@ while True:
         text = 'Black Block @%s' % str(9-len(black_position))
     else:
         text = 'Complete'
+        get_block_position_flag = True
+
 
     # 四角の描画やマウスイベントの設定
     cv.setMouseCallback(winName, mouse_event)
 
     # BlueToothで座標データの送信
     if line:  # ロボットからシグナルが来ている場合
-        get_block_position()
         send_data = ''
         print('color', send_color_data)
         print('black', send_black_data)
@@ -297,7 +300,6 @@ while True:
     # ボタン押下時のイベント作成
     key = cv.waitKey(1) & 0xff
     if key == ord('s'):
-        get_block_position()
         print(send_color_data, send_black_data)
     if key == ord('q'):
         cv.destroyAllWindows()
