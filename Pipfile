@@ -5,9 +5,10 @@ name = "pypi"
 
 [packages]
 opencv-python = "*"
-pyobjc = "*"
 pyserial = "*"
 timeout-decorator = "*"
+colorcorrect = "*"
+pillow = "*"
 
 [dev-packages]
 
