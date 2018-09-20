@@ -51,6 +51,8 @@ send_black_data = []
 rbyg = []
 black = []
 
+pos_array = []
+
 # レイヤーの出力名を取得する
 def getOutputsNames(net):
     layersNames = net.getLayerNames()
@@ -131,6 +133,8 @@ def mouse_event(event, x, y, flags, param):
         elif len(black_position) <= 8:
             black_position.append([x, y])
 
+        print('select count', len(color_position) + len(black_position))
+
 
 # ブロックの位置を取得し，配列に変換する
 def get_block_position():
@@ -141,22 +145,17 @@ def get_block_position():
     black_block_position.clear()
     send_black_data.clear()
 
-
     for i in range(0, len(color_position)):
         for z in range(0, len(rbyg)):
             if rbyg[z][0] <= color_position[i][0] <= rbyg[z][2] and rbyg[z][1] <= color_position[i][1] <= rbyg[z][3]:
                 if rbyg[z][4] == 1:
                     color_block_position.append(1)
-                    break
                 elif rbyg[z][4] == 2:
-                    color_block_position.append(3)
-                    break
+                    color_block_position.append(4)
                 elif rbyg[z][4] == 3:
                     color_block_position.append(2)
-                    break
                 elif rbyg[z][4] == 4:
-                    color_block_position.append(4)
-                    break
+                    color_block_position.append(3)
         if len(color_block_position) <= i:
             color_block_position.append(0)
 
@@ -170,15 +169,40 @@ def get_block_position():
                 black_block_position.append(0)
         except:
             black_block_position.append(0)
-    for i in range(1, 5):  # 赤，黄，青，緑の順に配列を整形
+
+    # 黄の場所で黄って認識したら赤に変える糞プログラム
+    if color_block_position[1] == 2:
+        color_block_position[1] = 1
+    if color_block_position[7] == 2:
+        color_block_position[7] = 1
+    if color_block_position[9] == 2:
+        color_block_position[9] = 1
+    if color_block_position[15] == 2:
+        color_block_position[15] = 1
+
+    # 赤の場所で赤って認識したら黄に変える糞プログラム
+    if color_block_position[0] == 1:
+        color_block_position[0] = 2
+    if color_block_position[6] == 1:
+        color_block_position[6] = 2
+    if color_block_position[8] == 1:
+        color_block_position[8] = 2
+    if color_block_position[14] == 1:
+        color_block_position[14] = 2
+
+    for i in range(1, 5):  # 赤，黄，緑，青の順に配列を整形
         if i in color_block_position:
-            send_color_data.append(color_block_position.index(i))
+            if color_block_position.count(i) >= 2:
+                send_color_data.append(color_block_position.index(i))
+            else:
+                send_color_data.append(color_block_position.index(i))
         else:  # もし見つけることが出来なかった場合
             if i in tmp_color:
                 send_color_data.append(tmp_color.index(i))  # 一度見つけた色はその色を表示する
                 color_block_position[tmp_color.index(i)] = i
             else:
-                send_color_data.append(99)  # 一度も見つかっていない色は99という数字にする
+                send_color_data.append(color_block_position.index(0))  # 一度も見つかっていない色は空いている数字にする
+
     for i in range(0, len(black_block_position)):  # 黒の配列を整形
         if black_block_position[i] == 1:
             send_black_data.append(i)
@@ -189,9 +213,52 @@ def get_block_position():
                 if send_black_data[i] != tmp_black[i]:
                     send_black_data[i] = tmp_black[i]
                     black_block_position[tmp_black[i]] = 1
-        else:  # ないなら9で埋める
+        else:  # ない場合
             for i in range(0, 2 - len(send_black_data)):
-                send_black_data.append(9)  # 一度も見つかっていない色は9という数字にする
+                send_black_data.append(black_block_position.index(0))  # 一度も見つかっていない色は空いている数字にする
+
+    if decode_flag:
+        tmp_code_c = pos_array[:4]
+        pos_b_code = pos_array[-1]
+        error_color = []
+        for i in range(0, len(send_color_data)):
+            if send_color_data[i] in tmp_code_c:
+                tmp_code_c.remove(send_color_data[i])
+            elif send_color_data[i] not in tmp_code_c:
+                error_color.append(i)
+
+        for i in error_color:
+            send_color_data[i] = tmp_code_c.pop(0)
+
+        error_black = []
+        tmp_code_b = []
+
+        if pos_b_code == 1:
+            tmp_code_b = [0, 4]
+        elif pos_b_code == 2:
+            tmp_code_b = [1, 5]
+        elif pos_b_code == 3:
+            tmp_code_b = [3, 7]
+        elif pos_b_code == 4:
+            tmp_code_b = [4, 8]
+        elif pos_b_code == 5:
+            tmp_code_b = [1, 3]
+        elif pos_b_code == 6:
+            tmp_code_b = [2, 4]
+        elif pos_b_code == 7:
+            tmp_code_b = [4, 6]
+        elif pos_b_code == 8:
+            tmp_code_b = [5, 7]
+
+        for i in range(0, len(send_black_data)):
+            if send_black_data[i] in tmp_code_b:
+                tmp_code_b.remove(send_black_data[i])
+            elif send_black_data[i] not in tmp_code_b:
+                error_black.append(i)
+
+        for i in error_black:
+            send_black_data[i] = tmp_code_b.pop(0)
+
 
 # 取得した画像を合成し，ノイズを取る
 def mix_brock():
@@ -199,16 +266,34 @@ def mix_brock():
     img_src2 = cv.imread("./img/2.png", 1)
     img_src3 = cv.imread("./img/3.png", 1)
 
-    img_ave = output_img1 = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + 105
+    img_ave = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + 20
     cv.imwrite("./img/mix.png", img_ave)
     img = Image.open('./img/mix.png')
-
+    # to_pil(cca.stretch(from_pil(img))).save('./img/block.png')
+    # to_pil(cca.retinex_with_adjust(cca.retinex(from_pil(img)))).save('./img/block.png')
     to_pil(cca.grey_world(from_pil(to_pil(cca.stretch(from_pil(img)))))).save('./img/block.png')
 
 
 @timeout(0.1)
 def serial_read(robo):
     return robo.readline().decode('ascii')
+
+
+def decode_position(pos):
+    pos_array.clear()
+    for i in list(hex(pos)):
+        pos_array.append(i)
+
+    count = 0
+    del pos_array[:2]
+
+    for i in pos_array:
+        pos_array[count] = int(i, 16)
+        count += 1
+
+    if len(pos_array) == 4:
+        pos_array.insert(0, 0)
+
 
 # 描画を行う上での初期設定
 winName = 'ET Robo'
@@ -219,10 +304,12 @@ wname = "MouseEvent"
 frame_count = 1
 
 get_block_position_flag = False
+decode_flag = False
 
 # BlueToothの初期化
 try:
-    ser ='' # serial.Serial('/dev/tty.MindstormsEV3-SerialPor', 9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
+    ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor', 9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
+    # ser = ''
 except :
     ser = ''
 
@@ -281,9 +368,11 @@ while True:
         print('color', send_color_data)
         print('black', send_black_data)
 
+        # if send_color_data
+
         # データを2桁に整形
         for val in send_color_data:
-            if int(math.log10(val) + 1) == 1:
+            if len(str(val)) == 1:
                 send_data += '0' + str(val)
             else:
                 send_data += str(val)
@@ -294,15 +383,20 @@ while True:
         # BlueToothで送信
         ser.write(send_data.encode('ascii'))
         ser.close()
-        cv.destroyAllWindows()
-        break
 
     # ボタン押下時のイベント作成
     key = cv.waitKey(1) & 0xff
     if key == ord('s'):
         print(send_color_data, send_black_data)
+    if key == ord('w'):
+        print('Input Initial position code')
+        position = int(input())
+        decode_position(position)
+        decode_flag = True
     if key == ord('q'):
         cv.destroyAllWindows()
         break
+    if key == ord('r'):
+        ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor',9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
 
 print('end')
