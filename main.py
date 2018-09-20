@@ -17,7 +17,7 @@ nmsThreshold = 0.4
 inpWidth = 416
 inpHeight = 416
 
-cam_url = 0  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
+cam_url = 1  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
 
 parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
 parser.add_argument('--image', help='Path to image file.')
@@ -271,10 +271,11 @@ def mix_brock():
     except:
         pal = 150
 
-    img_ave = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + pal - 300
+    img_ave = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + pal - 150
     cv.imwrite("./img/mix.png", img_ave)
     img = Image.open('./img/mix.png')
 
+    to_pil(cca.grey_world(from_pil(to_pil(cca.stretch(from_pil(img)))))).save('./img/block.png')
     try:
         pal2 = cv.getTrackbarPos('hige', winName)
     except:
@@ -352,19 +353,21 @@ while True:
         outs = net.forward(getOutputsNames(net))
         postprocess(im, outs)
         frame_count = 1
-        if get_block_position_flag:
-            get_block_position()
 
-        # ウィンドウの表示
         if len(color_position) <= 15:
             text = 'Color Block @%s' % str(16 - len(color_position))
         elif len(black_position) <= 8:
             text = 'Black Block @%s' % str(9 - len(black_position))
         else:
             text = 'Complete'
+            get_block_position_flag = True
 
+        if get_block_position_flag:
+            get_block_position()
+
+        # ウィンドウの表示
         cv.putText(im, text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 178, 50), 3)
-        cv.createTrackbar('hoge', winName, 300, 600, nothing)
+        cv.createTrackbar('hoge', winName, 150, 300, nothing)
         cv.createTrackbar('hige', winName, 0, 2, nothing)
         cv.imshow(winName, im)
 
