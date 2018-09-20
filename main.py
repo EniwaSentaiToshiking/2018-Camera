@@ -17,7 +17,7 @@ nmsThreshold = 0.4
 inpWidth = 416
 inpHeight = 416
 
-cam_url = 1  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
+cam_url = 0  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
 
 parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
 parser.add_argument('--image', help='Path to image file.')
@@ -266,12 +266,26 @@ def mix_brock():
     img_src2 = cv.imread("./img/2.png", 1)
     img_src3 = cv.imread("./img/3.png", 1)
 
-    img_ave = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + 20
+    try:
+        pal = cv.getTrackbarPos('hoge', winName)
+    except:
+        pal = 150
+
+    img_ave = img_src1 * (1 / 3) + img_src2 * (1 / 3) + img_src3 * (1 / 3) + pal - 300
     cv.imwrite("./img/mix.png", img_ave)
     img = Image.open('./img/mix.png')
-    # to_pil(cca.stretch(from_pil(img))).save('./img/block.png')
-    # to_pil(cca.retinex_with_adjust(cca.retinex(from_pil(img)))).save('./img/block.png')
-    to_pil(cca.grey_world(from_pil(to_pil(cca.stretch(from_pil(img)))))).save('./img/block.png')
+
+    try:
+        pal2 = cv.getTrackbarPos('hige', winName)
+    except:
+        pal2 = 0
+
+    if pal2 == 0:
+        to_pil(cca.grey_world(from_pil(to_pil(cca.stretch(from_pil(img)))))).save('./img/block.png')
+    elif pal2 == 1:
+        to_pil(cca.retinex_with_adjust(cca.retinex(from_pil(img)))).save('./img/block.png')
+    elif pal2 == 2:
+        to_pil(cca.stretch(from_pil(img))).save('./img/block.png')
 
 
 @timeout(0.1)
@@ -293,6 +307,10 @@ def decode_position(pos):
 
     if len(pos_array) == 4:
         pos_array.insert(0, 0)
+
+
+def nothing(val):
+    pass
 
 
 # 描画を行う上での初期設定
@@ -338,6 +356,16 @@ while True:
             get_block_position()
 
         # ウィンドウの表示
+        if len(color_position) <= 15:
+            text = 'Color Block @%s' % str(16 - len(color_position))
+        elif len(black_position) <= 8:
+            text = 'Black Block @%s' % str(9 - len(black_position))
+        else:
+            text = 'Complete'
+
+        cv.putText(im, text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 178, 50), 3)
+        cv.createTrackbar('hoge', winName, 300, 600, nothing)
+        cv.createTrackbar('hige', winName, 0, 2, nothing)
         cv.imshow(winName, im)
 
     # BlueToothでロボットから送られてくるデータの読み込み
@@ -349,15 +377,6 @@ while True:
         pass
     except:
         pass
-
-    if len(color_position) <= 15:
-        text = 'Color Block @%s' % str(16-len(color_position))
-    elif len(black_position) <= 8:
-        text = 'Black Block @%s' % str(9-len(black_position))
-    else:
-        text = 'Complete'
-        get_block_position_flag = True
-
 
     # 四角の描画やマウスイベントの設定
     cv.setMouseCallback(winName, mouse_event)
@@ -398,5 +417,6 @@ while True:
         break
     if key == ord('r'):
         ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor',9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
+        print('ok')
 
 print('end')
