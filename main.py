@@ -10,6 +10,7 @@ import colorcorrect.algorithm as cca
 from PIL import Image
 from colorcorrect.util import from_pil, to_pil
 import copy
+import csv
 
 # 初期化
 confThreshold = 0.5
@@ -17,7 +18,7 @@ nmsThreshold = 0.4
 inpWidth = 416
 inpHeight = 416
 
-cam_url = 1  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
+cam_url = 'http://192.168.11.100:8080/?action=stream'  # 0や1でWebCamを指定，当日はURL指定 'http://192.168.11.100:8080/?action=stream'
 
 parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
 parser.add_argument('--image', help='Path to image file.')
@@ -132,8 +133,6 @@ def mouse_event(event, x, y, flags, param):
             color_position.append([x, y])
         elif len(black_position) <= 8:
             black_position.append([x, y])
-
-        print('select count', len(color_position) + len(black_position))
 
 
 # ブロックの位置を取得し，配列に変換する
@@ -328,6 +327,7 @@ decode_flag = False
 # BlueToothの初期化
 try:
     ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor', 9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
+    print('connection done')
     # ser = ''
 except :
     ser = ''
@@ -367,6 +367,12 @@ while True:
 
         # ウィンドウの表示
         cv.putText(im, text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 2, (255, 178, 50), 3)
+        for i in color_position:
+            cv.ellipse(im, (i[0], i[1]), (5, 5), 0, 0, 360, (0, 0, 255), -1)
+
+        for i in black_position:
+            cv.ellipse(im, (i[0], i[1]), (5, 5), 0, 0, 360, (0, 255, 0), -1)
+
         cv.createTrackbar('hoge', winName, 150, 300, nothing)
         cv.createTrackbar('hige', winName, 0, 2, nothing)
         cv.imshow(winName, im)
@@ -375,7 +381,7 @@ while True:
     line = ''
     try:
         line = serial_read(ser)
-        print('OK', line)
+        print('receive', line)
     except TimeoutError:
         pass
     except:
@@ -409,7 +415,32 @@ while True:
     # ボタン押下時のイベント作成
     key = cv.waitKey(1) & 0xff
     if key == ord('s'):
+        with open('color.csv', 'w') as f:
+            f1_writer = csv.writer(f, lineterminator='\n')
+            f1_writer.writerows(color_position)
+
+        with open('black.csv', 'w') as f:
+            f2_writer = csv.writer(f, lineterminator='\n')
+            f2_writer.writerows(black_position)
+        print('pos save')
+
+    if key == ord('a'):
         print(send_color_data, send_black_data)
+
+    if key == ord('o'):
+        f1_o = open('color.csv', 'r')
+        f2_o = open('black.csv', 'r')
+
+        for i in f1_o:
+            tmp = i.replace('\n', '')
+            tmp_2 = tmp.split(",")
+            color_position.append([int(tmp_2[0]), int(tmp_2[1])])
+
+        for i in f2_o:
+            tmp = i.replace('\n', '')
+            tmp_2 = tmp.split(",")
+            black_position.append([int(tmp_2[0]), int(tmp_2[1])])
+
     if key == ord('w'):
         print('Input Initial position code')
         position = int(input())
@@ -420,6 +451,13 @@ while True:
         break
     if key == ord('r'):
         ser = serial.Serial('/dev/tty.MindstormsEV3-SerialPor',9600)  # tty.MindstormsEV3-SerialPor or tty.Mindstorms-SerialPortPr
-        print('ok')
+        print('reconnection')
 
 print('end')
+
+# sを押下でクリックした箇所をcsvで出力
+# aを押下でBluetoothで送られる内容を表示
+# oを押下でクリックした場所を表示
+# wを押下で初期位置コードを入力できるように
+# rを押下で再度コネクションを張る
+# qを押下でシステムを終了させる
